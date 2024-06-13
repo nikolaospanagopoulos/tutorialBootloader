@@ -6,21 +6,11 @@ start:
 
 
 	;clear the screen
-
-	mov ah, 0x06  ;BIOS function to scroll
-	mov al, 0x00  ;clear entire window
-	mov bh, 0x07  ;light grey color
-	mov cx, 0x0000 ;upper left corner
-	mov dx, 0x184F ;end of lower right corner
-	int 0x10       ;BIOS 10 interrupt
+	call clear_screen
 
 	;set cursor position
 
-	mov ah, 0x02  ;BIOS function to set cursor position
-	mov bh, 0x00  ;set page number
-	mov dh, 0x00  ;row
-	mov dl, 0x00  ;column
-	int 0x10
+	call set_cursor_position
 
 	;memory we want to place our second bootloader to
 	mov ax, 0x1000
@@ -46,7 +36,7 @@ start:
 
 
 include './print_string.asm'
-
+include './screen_functions.asm'
 read_from_disk_failed:
 	mov si, read_sectors_failed_str
 	call print_string
