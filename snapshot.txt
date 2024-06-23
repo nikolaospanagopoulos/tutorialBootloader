@@ -1,0 +1,25 @@
+Second bootloader loaded
+M
+Memory Map:
+Base Address: 0000000000000000 Length of region: 000000000009F000 Type: 00000001
+Base Address: 000000000009F000 Length of region: 0000000000001000 Type: 00000002
+Base Address: 00000000000E8000 Length of region: 0000000000018000 Type: 00000002
+Base Address: 0000000000100000 Length of region: 00000000BFEF0000 Type: 00000001
+Base Address: 00000000BFFF0000 Length of region: 0000000000010000 Type: 00000003
+Base Address: 00000000FFFC0000 Length of region: 0000000000040000 Type: 00000002
+ß
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
