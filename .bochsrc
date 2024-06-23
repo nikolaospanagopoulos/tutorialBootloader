@@ -1,0 +1,5 @@
+floppya: 1_44=OS.bin, status=inserted
+#display_library: sdl
+memory: guest=4096
+boot: a
+
