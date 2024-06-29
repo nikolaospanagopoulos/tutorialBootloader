@@ -1,8 +1,13 @@
 org 0x7c00    ;origin address 0x7c00
 start:
-	mov ah, 0eh   ;BIOS function to write on screen
-	mov al, 'p'   ;character we want to print
-	int 0x10      ;BIOS interrupt
+		;set up segment registers
+	xor ax, ax                      ;clear ax register
+	mov ds, ax                      ;set ds to 0x0000
+	mov es, ax                      ;set es to 0x0000
+
+	;set up the stack (downwards)
+	mov ss, ax
+	mov sp, 0x7c00
 
 
 	;clear the screen
@@ -13,9 +18,9 @@ start:
 	call set_cursor_position
 
 	;memory we want to place our second bootloader to
-	mov ax, 0x1000
-	mov es, ax
 	mov ax, 0x0000
+	mov es, ax
+	mov ax, 0x0800
 	mov bx, ax
 	;we will load to 0x1000:0x0000 -> 10000
 
@@ -29,7 +34,7 @@ start:
 	int 0x13      ;call BIOS interrupt
 	jc read_from_disk_failed
 
-	jmp 0x1000:0x0000
+	jmp 0x0000:0x0800
 
 
 	jmp $

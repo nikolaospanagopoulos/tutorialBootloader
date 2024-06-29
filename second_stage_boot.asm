@@ -1,11 +1,14 @@
-; 0x1000:0x0000
-org 0x0000
+; 0x0000:0x0800
+org 0x0800
+CODE_SEG equ gdt_code - gdt
+DATA_SEG equ gdt_data_segment - gdt
 
-mov ax, 0x1000
+
+mov ax, 0x0000
 mov ds, ax
 mov es, ax
 mov ss, ax
-mov sp, 0x7000  ; 0x1000:0x7000
+mov sp, 0x9FFF  ; 0x1000:0x7000
 
 mmap_ent equ 0x8000
 mov si, second_stage_boot_str_success
@@ -14,6 +17,27 @@ call print_string
 call get_input_from_user
 
 jmp $
+enter_protected:
+	call enable_a20_line
+step2:
+	cli
+    mov ax, 0x00                ; Data segment selector
+    mov ds, ax
+    mov es, ax
+    mov ss, ax
+    mov sp, 0x9FFF             ; Stack pointer
+	sti
+.load_protected:
+	cli
+	lgdt[gdt_descriptor]
+    mov eax, cr0
+    or eax, 0x1
+    mov cr0, eax
+    jmp CODE_SEG:load32
+hang:
+    jmp hang                    ; Infinite loop to prevent falling off
+
+
 
 get_input_from_user:
     xor di, di               ; clear di register
@@ -35,6 +59,8 @@ command_handle:
     je exit
     cmp al, 'M'               ; if M is pressed, display memory map
     je display_memory_map
+	cmp al, 'P'
+	jmp enter_protected
     jmp command_not_found
 command_not_found:
     mov si, command_not_found_str
@@ -170,6 +196,78 @@ do_e820:
     ret
 include './print_hex.asm'
 include './print_string.asm'
+
+;Enable A20 line
+enable_a20_line:
+	in al, 0x92                          ;read current value from port 0x92
+    or al, 2                             ;set the second bit to enable A20 line
+    out 0x92, al                         ;write the new value back to 0x92 port
+	ret
+
+gdt:
+	;null descriptor
+	dd 0x0
+	dd 0x0
+gdt_code:
+	;code sergment descriptor
+    dw 0xFFFF                   ; Limit (16 bits)
+    dw 0x0000                   ; Base (low 16 bits)
+    db 0x00                     ; Base (next 8 bits)
+    db 10011010b                ; Access byte
+    db 11001111b                ; Flags (Limit high 4 bits and granularity)
+    db 0x00                     ; Base (high 8 bits)
+gdt_data_segment:
+    ; Data Segment Descriptor
+    dw 0xFFFF                   ; Limit (16 bits)
+    dw 0x0000                   ; Base (low 16 bits)
+    db 0x00                     ; Base (next 8 bits)
+    db 10010010b                ; Access byte
+    db 11001111b                ; Flags (Limit high 4 bits and granularity)
+    db 0x00                     ; Base (high 8 bits)
+gdt_end:
+
+gdt_descriptor:
+	dw gdt_end - gdt - 1       ;size of gdt
+	dd gdt                     ;address of gdt
+
+
+use32
+load32:
+	mov ax, DATA_SEG
+    mov ds, ax
+    mov es, ax
+
+	; Access 32 bit registers
+    ; Print the string
+    mov esi, protected_mode_success_str             ;Source index pointing to string
+    mov edi, 0xB8000                                ;Destination index pointing to VGA memory
+    call pm_print_string
+
+    ; Hang
+    jmp $
+
+
+pm_print_string:
+    pusha
+    mov ah, 0x0F            ; Attribute byte: white text on black background
+.print_loop:
+    lodsb                   ; Load next byte from string into AL
+    cmp al, 0
+    je .done                ; If null terminator, end of string
+    mov [es:edi], ax        ; Write character and attribute to video memory
+    add edi, 2              ; Move to next character position
+    jmp .print_loop
+.done:
+    popa
+    ret
+
+
+protected_mode_success_str: db 'We are in Protected mode!',0xA,0xD,0
+
+
+
+
+
 base_address_str: db 'Base Address: ',0
 length_of_region_str: db ' Length of region: ',0
 new_line_str: db 0xA,0xD,0
