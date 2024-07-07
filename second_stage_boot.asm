@@ -1,13 +1,14 @@
-; 0x1000:0x0000
-org 0x0000
+; 0x0000:0x7E00
+org 0x7E00
 
-mov ax, 0x1000
+mov ax, 0x0000
 mov ds, ax
 mov es, ax
 mov ss, ax
-mov sp, 0x7000  ; 0x1000:0x7000
+mov sp, 0x7c00  ; 0x0000:0x7c00 (0x0000 * 16) + 0x7c00 
+;stack grows downwords so (0x7c00)=>(31744 / 1024) = 31kb
 
-mmap_ent equ 0x8000
+mmap_ent equ 0x0500
 mov si, second_stage_boot_str_success
 call print_string
 
@@ -16,6 +17,8 @@ call get_input_from_user
 jmp $
 
 get_input_from_user:
+	mov si, menu_str
+	call print_string
     xor di, di               ; clear di register
     mov di, empty_command_str
 read_user_key:
@@ -35,6 +38,8 @@ command_handle:
     je exit
     cmp al, 'M'               ; if M is pressed, display memory map
     je display_memory_map
+	cmp al, 'C'
+	je do_checks
     jmp command_not_found
 command_not_found:
     mov si, command_not_found_str
@@ -50,7 +55,7 @@ display_memory_map:
     call do_e820
     mov si, memory_map_str
     call print_string
-    mov di, 0x8004
+    mov di, 0x0504
     mov cx, [mmap_ent]
 print_entries:
 	cmp cx, 0
@@ -80,6 +85,54 @@ print_entries:
     jmp print_entries
 end_display:
     jmp get_input_from_user
+do_checks:
+	call check_pci_bus
+	call cpuid_check
+    jmp get_input_from_user
+check_pci_bus:
+	pusha                    ;save all general purpose registers
+	mov si, pci_status_str
+	call print_string
+	mov ax, 0xB101           ;BIOS function to check for pci bus
+	int 0x1A                 ;BIOS interrupt
+	jc .pci_error
+.pci_bus_exists:
+	mov si, pci_exists_str
+	call print_string
+	popa                     ;restore general purpose registers
+	ret
+.pci_error:
+	mov si, pci_not_exists_str
+	call print_string
+	;we need pci to connect devices
+	jmp $
+
+cpuid_check:
+	pusha                                ;save state
+	mov si, cpuid_ins_status_str
+	call print_string
+	pushfd                               ;Save EFLAGS
+    pushfd                               ;Store EFLAGS
+    xor dword [esp],0x00200000           ;Invert the ID bit in stored EFLAGS
+    popfd                                ;Load stored EFLAGS (with ID bit inverted)
+    pushfd                               ;Store EFLAGS again (ID bit may or may not be inverted)
+    pop eax                              ;eax = modified EFLAGS (ID bit may or may not be inverted)
+    xor eax,[esp]                        ;eax = whichever bits were changed
+    popfd                                ;Restore original EFLAGS
+    and eax,0x00200000                   ;eax = zero if ID bit can't be changed, else non-zero
+	cmp eax,0x00
+	je .cpuid_instruction_not_is_available
+.cpuid_instruction_is_available:
+	mov si, cpuid_ins_available_str
+	call print_string
+	jmp .cpuid_check_end
+.cpuid_instruction_not_is_available:
+	mov si, cpuid_ins_not_available_str
+	call print_string
+.cpuid_check_end:
+	popa                                  ;restore state
+	ret
+
 
 ;MEMORY MAP
 	                          ;INT 0x15
@@ -122,8 +175,9 @@ end_display:
 ;| 20             | Extended Attributes  | 4 bytes |  (we initialize)
 
 do_e820:
+	pusha
 	;STEPS before using int 0x15
-    mov di, 0x8004           ; Set di to 0x8004 Otherwise this code will get stuck in `int 0x15` after some entries are fetched 
+    mov di, 0x0504           ; Set di to 0x8004 Otherwise this code will get stuck in `int 0x15` after some entries are fetched 
     xor ebx, ebx             ; ebx must be 0 to start
     xor bp, bp               ; keep an entry count in bp | make it 0
     mov edx, 0x534D4150      ; Place "SMAP" into edx | The "SMAP" signature ensures that the BIOS provides the correct memory map format ()
@@ -164,12 +218,21 @@ do_e820:
     mov [mmap_ent], bp       ; store the entry count
     clc                      ; there is "jc" on end of list to this point, so the carry must be cleared
 
+	popa
     ret
 .failed:
     stc                      ; "function unsupported" error exit
     ret
 include './print_hex.asm'
 include './print_string.asm'
+
+menu_str:db 0xA,0xD,'M) display memory map',0xA,0xD,'C) Do checks', 0xA,0xD,'D) end program',0xA,0xD,0
+pci_status_str: db 0xA,0xD,'pci status: ',0
+pci_exists_str: db 'pci_exists',0xA,0xD,0
+pci_not_exists_str: db 'pci bus is not installed',0xA,0xD,0
+cpuid_ins_status_str: db 0xA,0xD,'CPUID instruction status: ',0
+cpuid_ins_available_str: db 'Available',0xA,0xD,0
+cpuid_ins_not_available_str: db 'Not available',0xA,0xD,0
 base_address_str: db 'Base Address: ',0
 length_of_region_str: db ' Length of region: ',0
 new_line_str: db 0xA,0xD,0
@@ -180,6 +243,6 @@ command_not_found_str: db 0xA, 0xD, "The command doesn't exist", 0xA, 0xD, 0
 second_stage_boot_str_success: db 'Second bootloader loaded', 0xA, 0xD, 0
 empty_command_str: db ''
 
-times 2048 - ($-$$) db 0
+times 2560 - ($-$$) db 0
 
 
