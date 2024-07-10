@@ -88,6 +88,7 @@ end_display:
 do_checks:
 	call check_pci_bus
 	call cpuid_check
+	call get_cpu_vendor
     jmp get_input_from_user
 check_pci_bus:
 	pusha                    ;save all general purpose registers
@@ -132,6 +133,8 @@ cpuid_check:
 .cpuid_check_end:
 	popa                                  ;restore state
 	ret
+
+
 
 
 ;MEMORY MAP
@@ -223,9 +226,29 @@ do_e820:
 .failed:
     stc                      ; "function unsupported" error exit
     ret
+
+get_cpu_vendor:
+	pusha
+	mov eax, 0x0
+	cpuid
+	mov [buffer],ebx
+	mov [buffer+4],edx
+	mov [buffer+8],ecx
+	mov si, cpu_vendor_str
+	call print_string
+	mov si, buffer
+	call print_string
+	popa
+	ret
+
+
+
+
+
 include './print_hex.asm'
 include './print_string.asm'
-
+cpu_vendor_str: db 0xA,0xD,'CPU vendor: ',0
+buffer: db 12 dup(0), 0xA,0xD,0
 menu_str:db 0xA,0xD,'M) display memory map',0xA,0xD,'C) Do checks', 0xA,0xD,'D) end program',0xA,0xD,0
 pci_status_str: db 0xA,0xD,'pci status: ',0
 pci_exists_str: db 'pci_exists',0xA,0xD,0
