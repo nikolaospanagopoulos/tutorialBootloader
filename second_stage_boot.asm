@@ -231,6 +231,8 @@ enable_a20_line:
     out 0x92, al                         ; write the new value back to 0x92 port
     ret
 
+;***********************GDT****************************
+;Null Descriptor: This is a mandatory entry in the GDT. The first entry must be a null descriptor, which is not used and simply provides a placeholder.
 gdt_start:
 gdt_null:
     ; null descriptor
@@ -238,11 +240,22 @@ gdt_null:
     dd 0x0
 gdt_code:
 	;code sergment descriptor
-    dw 0xFFFF                   ; Limit (16 bits)
-    dw 0x0000                   ; Base (low 16 bits)
+    dw 0xFFFF                   ; Can access up to 65635 (almost 64kb)
+    dw 0x0000                   ; starts at address 0
     db 0x00                     ; Base (next 8 bits)
-    db 0x9A                ; Access byte
-    db 11001111b                ; Flags (Limit high 4 bits and granularity)
+    db 0x9A                     ; Access byte. in binary -> 10011010
+	;1->Present bit. Allows an entry to refer to a valid segment.
+	;0->Descriptor privilege level field. 0 is heighest
+	;0->Descriptor type bit. If clear (0) the descriptor defines a system segment
+	;1->Executable bit. Defines a code segment which can be executed from 
+	;1->Conforming bit. Code in this segment can be executed from an equal or lower privilege level.
+	;0->Readable bit. Read access for this segment is not allowed
+	;1->Accessed bit. The CPU will set it when the segment is accessed unless set to 1 in advance.
+    db 11001111b                ; 1111 represents the high 4 bits of the segment limit
+	;1->Granularity flag.If set (1), the Limit is in 4 KiB blocks
+	;1->If set (1) it defines a 32-bit protected mode segment.
+	;0->Not in long mode
+	;0->Reserved
     db 0x00                     ; Base (high 8 bits)
 gdt_data_segment:
     ; Data Segment Descriptor
@@ -343,10 +356,9 @@ ata_lba_read:
     popa
     ret
 
-lba_str: db 0xA, 0xD, 'pidaras', 0xA, 0xD, 0
 cpu_vendor_str: db 0xA, 0xD, 'CPU vendor: ', 0
 buffer: db 12 dup(0), 0xA, 0xD, 0
-menu_str: db 0xA, 0xD, 'M) display memory map', 0xA, 0xD, 'C) Do checks', 0xA, 0xD, 'D) end program', 0xA, 0xD, 0
+menu_str: db 0xA, 0xD, 'M) display memory map', 0xA, 0xD, 'C) Do checks', 0xA, 0xD, 'D) end program', 0xA, 0xD, 'P) Enter into protected mode',0xA,0xD,0
 pci_status_str: db 0xA, 0xD, 'pci status: ', 0
 pci_exists_str: db 'pci_exists', 0xA, 0xD, 0
 pci_not_exists_str: db 'pci bus is not installed', 0xA, 0xD, 0
