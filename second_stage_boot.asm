@@ -225,11 +225,6 @@ protected_mode_success_str: db 'We are in Protected mode!', 0xA, 0xD, 0
 include './print_hex.asm'
 include './print_string.asm'
 
-enable_a20_line:
-    in al, 0x92                          ; read current value from port 0x92
-    or al, 2                             ; set the second bit to enable A20 line
-    out 0x92, al                         ; write the new value back to 0x92 port
-    ret
 
 ;***********************GDT****************************
 ;Null Descriptor: This is a mandatory entry in the GDT. The first entry must be a null descriptor, which is not used and simply provides a placeholder.

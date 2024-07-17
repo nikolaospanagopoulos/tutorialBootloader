@@ -20,20 +20,18 @@ _start:
     mov ebp, 0x00200000
     mov esp, ebp
 
+
     ; Enable the A20 line
-    in al, 0x92
-    or al, 2
-    out 0x92, al; Load the string and video memory address
-    mov esi, nikos
-    mov edi, 0xB8000      
+	;For an operating system developer (or Bootloader developer) this means the A20 line has to be enabled so that all memory can be accessed.
+	;https://wiki.osdev.org/A20_Line
+    in al, 0x92                          ; read current value from port 0x92
+    or al, 2                             ; set the second bit to enable A20 line
+    out 0x92, al                         ; write the new value back to 0x92 port
 
-    ; Call the print string function
-    call pm_print_string
-
-    ; Infinite loop to prevent falling off
 	call kernel_main
     jmp $
 
+;Routine to print string in protected mode asm
 pm_print_string:
     pusha
     mov ah, 0x0F            ; Attribute byte: white text on black background
@@ -49,5 +47,5 @@ pm_print_string:
     ret
 
 section '.data'
-nikos: db 'PIDARAS', 0
+test_str: db 'Protected test', 0
 times 512-($ - $$) db 0
