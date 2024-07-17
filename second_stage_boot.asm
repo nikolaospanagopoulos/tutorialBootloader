@@ -245,12 +245,12 @@ gdt_code:
     db 0x00                     ; Base (next 8 bits)
     db 0x9A                     ; Access byte. in binary -> 10011010
 	;1->Present bit. Allows an entry to refer to a valid segment.
-	;0->Descriptor privilege level field. 0 is heighest
-	;0->Descriptor type bit. If clear (0) the descriptor defines a system segment
+	;00->Descriptor privilege level field. 0 is heighest
+	;1->Descriptor type bit. If set (1) it defines a code or data segment.
 	;1->Executable bit. Defines a code segment which can be executed from 
-	;1->Conforming bit. Code in this segment can be executed from an equal or lower privilege level.
-	;0->Readable bit. Read access for this segment is not allowed
-	;1->Accessed bit. The CPU will set it when the segment is accessed unless set to 1 in advance.
+	;0->Conforming bit.if clear (0) code in this segment can only be executed from the ring set in DP
+	;1->Readable bit. Read access for this segment is allowed
+	;0->Accessed bit. The CPU will set it when the segment is accessed unless set to 1 in advance.
     db 11001111b                ; 1111 represents the high 4 bits of the segment limit
 	;1->Granularity flag.If set (1), the Limit is in 4 KiB blocks
 	;1->If set (1) it defines a 32-bit protected mode segment.
@@ -262,11 +262,20 @@ gdt_data_segment:
     dw 0xFFFF                   ; Limit (16 bits)
     dw 0x0000                   ; Base (low 16 bits)
     db 0x00                     ; Base (next 8 bits)
-    db 0x92                ; Access byte
+    db 0x92                     ; Access byte (10010010)
+	;1->Present bit. Allows an entry to refer to a valid segment. Must be set (1) for any valid segment.
+	;00->Descriptor privilege level field. 0 is heighest
+	;1->Descriptor type bit. If set (1) it defines a code or data segment.
+	;0->Executable bit.If (0) defines a data segment. 
+	;0->Direction bit.if clear (0) segment grows upwards
+	;1->Readable|Writable bit. If set (1) write access is allowed. Read access is always allowed for data segments.
+	;0->Accessed bit. The CPU will set it when the segment is accessed unless set to 1 in advance.
     db 11001111b                ; Flags (Limit high 4 bits and granularity)
     db 0x00                     ; Base (high 8 bits):
 gdt_end:
 
+;Size: The size of the GDT is calculated by subtracting the start address from the end address and then subtracting 1. This is a common convention in x86 assembly.
+;Address: The base address of the GDT is provided so the CPU can locate it.
 gdt_descriptor:
     dw gdt_end - gdt_start - 1       ; size of gdt
     dd gdt_start                     ; address of gdt

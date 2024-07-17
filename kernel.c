@@ -99,5 +99,5 @@ void kernel_main(void) {
   terminal_initialize();
 
   /* Newline support is left as an exercise. */
-  terminal_writestring("*****************PROTECTED MODE******************\n");
+  terminal_writestring("0*****************PROTECTED MODE******************0");
 }
