@@ -1,7 +1,7 @@
 org 0x7E00
 
-CODE_SEG equ gdt_code - gdt_start
-DATA_SEG equ gdt_data_segment - gdt_start
+code_segment equ gdt_code - gdt_start
+data_segment equ gdt_data_segment - gdt_start
 
 mov ax, 0x0000
 mov ds, ax
@@ -31,7 +31,7 @@ step2:
     mov eax, cr0
     or eax, 0x1
     mov cr0, eax
-    jmp CODE_SEG:load32
+    jmp code_segment:load32
 hang:
     jmp hang                     ; Infinite loop to prevent falling off
 
@@ -226,7 +226,15 @@ include './print_hex.asm'
 include './print_string.asm'
 
 
-;***********************GDT****************************
+	               ;***********************GDT****************************
+;The Global Descriptor Table (GDT) is a data structure used by Intel x86-family processors to define the characteristics of the various memory segments used in a protected mode. It provides information such as the base address, size, and access permissions of segments. The CPU uses the GDT to manage and control access to different segments of memory.
+
+;In x86 protected mode, memory is divided into segments. Each segment can hold code, data, or stack information. Each segment is defined by a descriptor in the GDT, which includes details like the base address, size (limit), and access rights.
+
+;Each entry in the GDT is called a descriptor. A descriptor provides the base address, the segment limit, and the access rights and properties of the segment. Descriptors can define code segments, data segments, or system segments like Task State Segments (TSS).
+
+
+
 ;Null Descriptor: This is a mandatory entry in the GDT. The first entry must be a null descriptor, which is not used and simply provides a placeholder.
 gdt_start:
 gdt_null:
@@ -235,7 +243,8 @@ gdt_null:
     dd 0x0
 gdt_code:
 	;code sergment descriptor
-    dw 0xFFFF                   ; Can access up to 65635 (almost 64kb)
+    dw 0xFFFF                   ; Lower 16 bits: 0xFFFF -> Upper 4 bits: 0xF ->together 0xFFFFF
+	;(0xFFFFF + 1) * 4 KB       ; we can access 4gb
     dw 0x0000                   ; starts at address 0
     db 0x00                     ; Base (next 8 bits)
     db 0x9A                     ; Access byte. in binary -> 10011010
@@ -284,7 +293,7 @@ load32:
     call ata_lba_read
 
     ; Jump to the loaded kernel
-    jmp CODE_SEG:0x100000
+    jmp code_segment:0x100000
 
 
 
@@ -306,50 +315,43 @@ ata_lba_read:
     pusha
 
     mov ebx, eax            ; backup lba
-    ; send the highest 8 bits of the lba to the hard disk controller
+	;Send 0xE0 for the "master" or 0xF0 for the "slave", ORed with the highest 4 bits of the LBA to port 0x1F6: outb(0x1F6, 0xE0 | (slavebit << 4) | ((LBA >> 24) & 0x0F))
     shr eax, 24
     or eax, 0xE0
     mov dx, 0x1F6
     out dx, al
-
-    ; send the total sectors to read
+	;Send the sectorcount to port 0x1F2: outb(0x1F2, (unsigned char) count)
     mov eax, ecx
     mov dx, 0x1F2
     out dx, al
-
-    ; send more bits of the lba
+	;Send the low 8 bits of the LBA to port 0x1F3: outb(0x1F3, (unsigned char) LBA))
     mov eax, ebx
     mov dx, 0x1F3
     out dx, al
-
-    ; send more bits of the lba
+	;Send the next 8 bits of the LBA to port 0x1F4: outb(0x1F4, (unsigned char)(LBA >> 8))
     mov dx, 0x1F4
     mov eax, ebx
     shr eax, 8
     out dx, al
-    
-    ; send upper 16 bits to the lba
+	;Send the next 8 bits of the LBA to port 0x1F5: outb(0x1F5, (unsigned char)(LBA >> 16))
     mov dx, 0x1F5
     mov eax, ebx
     shr eax, 16
     out dx, al
-
+	;Send the "READ SECTORS" command (0x20) to port 0x1F7: outb(0x1F7, 0x20)
     mov dx, 0x1f7
     mov al, 0x20
     out dx, al
-
 ; read all sectors in memory
 .next_sector:
     push ecx
-
-; checking if we need to read because of delay
+;checks if the disk is ready to transfer data by reading from I/O port 0x1F7 and testing bit 3 (DRQ - Data Request bit).
 .try_again:
     mov dx, 0x1f7
     in al, dx
     test al, 8
     jz .try_again
-
-; read 256 words at a time
+;Transfer 256 16-bit values, a uint16_t at a time, into your buffer from I/O port 0x1F0.
     mov ecx, 256
     mov dx, 0x1F0
     rep insw

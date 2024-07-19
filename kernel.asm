@@ -4,20 +4,23 @@ use32
 extrn kernel_main
 public _start
 
-CODE_SEG equ 0x08
-DATA_SEG equ 0x10
+;EACH GDT ENTRY IS 1 BYTE
+CODE_SEGMENT equ 0x08 ;first entry in the GDT (not 0) -> 0x08
+DATA_SEGMENT equ 0x10 ;second entry in the GDT -> 0x10 -> (decimal 16)
 
 section '.text'
 
 _start:
     ; Set up segment registers
-    mov ax, DATA_SEG
+    mov ax, DATA_SEGMENT
     mov ds, ax
     mov es, ax
     mov fs, ax
     mov gs, ax
     mov ss, ax
-    mov ebp, 0x00200000
+	;The ebp register, also known as the Base Pointer or Frame Pointer, is used in x86 architecture to manage stack frames for function calls.
+	;0x200000 is a free area that we can use
+    mov ebp, 0x200000
     mov esp, ebp
 
 

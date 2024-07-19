@@ -1,7 +1,7 @@
 FILES = ./build/kernel.asm.o ./build/kernel.o
 FLAGS = -g -ffreestanding -falign-jumps -falign-functions -falign-labels -falign-loops -fstrength-reduce -fomit-frame-pointer -finline-functions -Wno-unused-function -fno-builtin -Werror -Wno-unused-label -Wno-cpp -Wno-unused-parameter -nostdlib -nostartfiles -nodefaultlibs -Wall -O0 -Iinc
 
-all: ./bin/boot.bin ./bin/second_stage_boot.bin ./bin/kernel.bin
+./bin/os.bin: ./bin/boot.bin ./bin/second_stage_boot.bin ./bin/kernel.bin
 	rm -f ./bin/os.bin
 	cat ./bin/boot.bin ./bin/second_stage_boot.bin ./bin/kernel.bin > ./bin/os.bin
 	dd if=/dev/zero bs=512 count=100 >> ./bin/os.bin
