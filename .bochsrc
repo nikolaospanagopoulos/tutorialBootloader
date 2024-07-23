@@ -1,5 +1,13 @@
-floppya: 1_44=OS.bin, status=inserted
-#display_library: sdl
+# Bochs Configuration File
+
+# Define a hard disk with a small size
+ata0-master: type=disk, path="OS.img", mode=flat, cylinders=20, heads=16, spt=63
+
+# Enable VGA display
+
+# Other configuration options
 memory: guest=4096
-boot: a
+boot: disk
+romimage: file=/usr/share/bochs/BIOS-bochs-latest
+vgaromimage: file=/usr/share/bochs/VGABIOS-lgpl-latest
 

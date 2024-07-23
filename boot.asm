@@ -1,5 +1,4 @@
 org 0x7c00    ;origin address 0x7c00
-start:
 	mov ah, 0eh   ;BIOS function to write on screen
 	mov al, 'p'   ;character we want to print
 	int 0x10      ;BIOS interrupt
@@ -23,7 +22,7 @@ start:
 	mov ah, 0x02  ;BIOS function to read disk sectors
 	mov al, 0x05  ;(2048) how many sectors we want to read
 	mov dh, 0x00  ;head
-	mov dl ,0x00  ;drive
+	mov dl ,0x80  ;drive
 	mov ch, 0x00  ;cylinder
 	mov cl, 0x02  ;sector we want to start reading from
 	int 0x13      ;call BIOS interrupt
