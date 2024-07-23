@@ -17,9 +17,8 @@ call print_string
 call get_input_from_user
 
 enter_protected:
-step2:
     cli
-    mov ax, 0x00                 ; Data segment selector
+    mov ax, 0x00                 
     mov ds, ax
     mov es, ax
     mov ss, ax
@@ -33,7 +32,7 @@ step2:
     mov cr0, eax
     jmp code_segment:load32
 hang:
-    jmp hang                     ; Infinite loop to prevent falling off
+    jmp hang                     
 
 jmp $
 
@@ -288,7 +287,7 @@ use32
 load32:
 
 	 mov eax, 6               ; LBA start address for kernel.bin (6 in this example)
-    mov ecx, 100               ; Number of sectors to read (8 in this example)
+    mov ecx, 100               ; Number of sectors to read (100 in this example)
     mov edi, 0x100000        ; Memory address to load the kernel
     call ata_lba_read
 
