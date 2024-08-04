@@ -1,7 +1,7 @@
 org 0x7E00
 
-code_segment equ gdt_code - gdt_start
-data_segment equ gdt_data_segment - gdt_start
+code_segment equ gdt_code - gdt_address
+data_segment equ gdt_data_segment - gdt_address
 
 mov ax, 0x0000
 mov ds, ax
@@ -235,7 +235,7 @@ include './print_string.asm'
 
 
 ;Null Descriptor: This is a mandatory entry in the GDT. The first entry must be a null descriptor, which is not used and simply provides a placeholder.
-gdt_start:
+gdt_address:
 gdt_null:
     ; null descriptor
     dd 0x0
@@ -280,13 +280,13 @@ gdt_end:
 ;Size: The size of the GDT is calculated by subtracting the start address from the end address and then subtracting 1. This is a common convention in x86 assembly.
 ;Address: The base address of the GDT is provided so the CPU can locate it.
 gdt_descriptor:
-    dw gdt_end - gdt_start - 1       ; size of gdt
-    dd gdt_start                     ; address of gdt
+    dw gdt_end - gdt_address - 1       ; size of gdt
+    dd gdt_address                     ; address of gdt
 
 use32
 load32:
 
-	 mov eax, 6               ; LBA start address for kernel.bin (6 in this example)
+	mov eax, 6               ; LBA start address for kernel.bin (6 in this example)
     mov ecx, 100               ; Number of sectors to read (100 in this example)
     mov edi, 0x100000        ; Memory address to load the kernel
     call ata_lba_read
@@ -309,6 +309,12 @@ pm_print_string:
 .done:
     popa
     ret
+;reading sectors from a hard disk using the ATA (Advanced Technology Attachment) interface in LBA (Logical Block Addressing) mode. 
+;ATA (Advanced Technology Attachment)
+;ATA is a standard interface for connecting storage devices such as hard drives and CD-ROM drives to a computer. It allows the CPU to communicate with these devices to read and write data.
+
+;LBA (Logical Block Addressing)
+;LBA is a method of specifying the location of blocks of data stored on a hard disk. Unlike CHS (Cylinder-Head-Sector) addressing, which refers to the physical location on the disk, LBA uses a linear addressing scheme, making it simpler and more efficient for accessing large amounts of data.
 
 ata_lba_read:
     pusha

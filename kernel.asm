@@ -12,6 +12,7 @@ section '.text'
 
 _start:
     ; Set up segment registers
+	;By setting the ds, es, fs, gs, and ss registers to point to the data segment, we ensure that any data access (global variables, stack operations, etc.) references the correct memory locations defined by the GDT entry.
     mov ax, DATA_SEGMENT
     mov ds, ax
     mov es, ax
