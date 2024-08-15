@@ -1,12 +1,14 @@
-; 0x0000:0x7E00
 org 0x7E00
+
+code_segment equ gdt_code - gdt_address
+data_segment equ gdt_data_segment - gdt_address
 
 mov ax, 0x0000
 mov ds, ax
 mov es, ax
 mov ss, ax
 mov sp, 0x7c00  ; 0x0000:0x7c00 (0x0000 * 16) + 0x7c00 
-;stack grows downwords so (0x7c00)=>(31744 / 1024) = 31kb
+;stack grows downwards so (0x7c00) => (31744 / 1024) = 31kb
 
 mmap_ent equ 0x0500
 mov si, second_stage_boot_str_success
@@ -14,32 +16,52 @@ call print_string
 
 call get_input_from_user
 
+enter_protected:
+    cli
+    mov ax, 0x00                 
+    mov ds, ax
+    mov es, ax
+    mov ss, ax
+    mov sp, 0x7c00
+    sti
+.load_protected:
+    cli
+    lgdt [gdt_descriptor]
+    mov eax, cr0
+    or eax, 0x1
+    mov cr0, eax
+    jmp code_segment:load32
+hang:
+    jmp hang                     
+
 jmp $
 
 get_input_from_user:
-	mov si, menu_str
-	call print_string
-    xor di, di               ; clear di register
+    mov si, menu_str
+    call print_string
+    xor di, di                   ; clear di register
     mov di, empty_command_str
 read_user_key:
-    mov ah, 0x0               ; BIOS function to read user key
-    int 0x16                  ; BIOS interrupt
-    cmp al, 0xD               ; check if ENTER was pressed
+    mov ah, 0x0                  ; BIOS function to read user key
+    int 0x16                     ; BIOS interrupt
+    cmp al, 0xD                  ; check if ENTER was pressed
     je command_handle
-    mov ah, 0eh               ; BIOS function to print char
-    int 0x10                  ; BIOS interrupt
-    mov [di], al              ; put the char in the empty_command_str
+    mov ah, 0eh                  ; BIOS function to print char
+    int 0x10                     ; BIOS interrupt
+    mov [di], al                 ; put the char in the empty_command_str
     inc di
     jmp read_user_key
 command_handle:
-    mov byte [di], 0          ; null terminate string
-    mov al, [empty_command_str] ; put into al the command string buffer
-    cmp al, 'D'               ; if D is pressed end program
+    mov byte [di], 0             ; null terminate string
+    mov al, [empty_command_str]  ; put into al the command string buffer
+    cmp al, 'D'                  ; if D is pressed end program
     je exit
-    cmp al, 'M'               ; if M is pressed, display memory map
+    cmp al, 'M'                  ; if M is pressed, display memory map
     je display_memory_map
-	cmp al, 'C'
-	je do_checks
+    cmp al, 'C'
+    je do_checks
+    cmp al, 'P'
+    je enter_protected
     jmp command_not_found
 command_not_found:
     mov si, command_not_found_str
@@ -58,7 +80,7 @@ display_memory_map:
     mov di, 0x0504
     mov cx, [mmap_ent]
 print_entries:
-	cmp cx, 0
+    cmp cx, 0
     je end_display
     mov si, base_address_str
     call print_string
@@ -74,7 +96,6 @@ print_entries:
     mov eax, [es:di + 8]     ; Print Length (lower 32 bits)
     call print_hex
 
-
     mov si, type_str
     call print_string
     mov eax, [es:di + 16]    ; Print Type
@@ -86,106 +107,63 @@ print_entries:
 end_display:
     jmp get_input_from_user
 do_checks:
-	call check_pci_bus
-	call cpuid_check
-	call get_cpu_vendor
+    call check_pci_bus
+    call cpuid_check
+    call get_cpu_vendor
     jmp get_input_from_user
 check_pci_bus:
-	pusha                    ;save all general purpose registers
-	mov si, pci_status_str
-	call print_string
-	mov ax, 0xB101           ;BIOS function to check for pci bus
-	int 0x1A                 ;BIOS interrupt
-	jc .pci_error
+    pusha                    ; save all general-purpose registers
+    mov si, pci_status_str
+    call print_string
+    mov ax, 0xB101           ; BIOS function to check for PCI bus
+    int 0x1A                 ; BIOS interrupt
+    jc .pci_error
 .pci_bus_exists:
-	mov si, pci_exists_str
-	call print_string
-	popa                     ;restore general purpose registers
-	ret
+    mov si, pci_exists_str
+    call print_string
+    popa                     ; restore general-purpose registers
+    ret
 .pci_error:
-	mov si, pci_not_exists_str
-	call print_string
-	;we need pci to connect devices
-	jmp $
+    mov si, pci_not_exists_str
+    call print_string
+    ; we need PCI to connect devices
+    jmp $
 
 cpuid_check:
-	pusha                                ;save state
-	mov si, cpuid_ins_status_str
-	call print_string
-	pushfd                               ;Save EFLAGS
-    pushfd                               ;Store EFLAGS
-    xor dword [esp],0x00200000           ;Invert the ID bit in stored EFLAGS
-    popfd                                ;Load stored EFLAGS (with ID bit inverted)
-    pushfd                               ;Store EFLAGS again (ID bit may or may not be inverted)
-    pop eax                              ;eax = modified EFLAGS (ID bit may or may not be inverted)
-    xor eax,[esp]                        ;eax = whichever bits were changed
-    popfd                                ;Restore original EFLAGS
-    and eax,0x00200000                   ;eax = zero if ID bit can't be changed, else non-zero
-	cmp eax,0x00
-	je .cpuid_instruction_not_is_available
+    pusha                                ; save state
+    mov si, cpuid_ins_status_str
+    call print_string
+    pushfd                               ; Save EFLAGS
+    pushfd                               ; Store EFLAGS
+    xor dword [esp],0x00200000           ; Invert the ID bit in stored EFLAGS
+    popfd                                ; Load stored EFLAGS (with ID bit inverted)
+    pushfd                               ; Store EFLAGS again (ID bit may or may not be inverted)
+    pop eax                              ; eax = modified EFLAGS (ID bit may or may not be inverted)
+    xor eax,[esp]                        ; eax = whichever bits were changed
+    popfd                                ; Restore original EFLAGS
+    and eax,0x00200000                   ; eax = zero if ID bit can't be changed, else non-zero
+    cmp eax,0x00
+    je .cpuid_instruction_not_is_available
 .cpuid_instruction_is_available:
-	mov si, cpuid_ins_available_str
-	call print_string
-	jmp .cpuid_check_end
+    mov si, cpuid_ins_available_str
+    call print_string
+    jmp .cpuid_check_end
 .cpuid_instruction_not_is_available:
-	mov si, cpuid_ins_not_available_str
-	call print_string
+    mov si, cpuid_ins_not_available_str
+    call print_string
 .cpuid_check_end:
-	popa                                  ;restore state
-	ret
-
-
-
-
-;MEMORY MAP
-	                          ;INT 0x15
-;Newer BIOSes - GET SYSTEM MEMORY MAP
-;AX = E820h
-;EAX = 0000E820h
-;EDX = 534D4150h ('SMAP')
-;EBX = continuation value or 00000000h to start at beginning of map
-;ECX = size of buffer for result, in bytes (should be >= 20 bytes)
-;ES:DI -> buffer for result
-;                             ;ON SUCCESS
-;CF clear if successful
-;EAX = 534D4150h ('SMAP')
-;ES:DI buffer filled
-;EBX = next offset from which to copy or 00000000h if all done
-;ECX = actual length returned in bytes
-;CF set on error
-;AH = error code (86h) (see #00496 at INT 15/AH=80h)
-
-
-;MEMORY MAP entry structure
-;First uint64_t = Base addres
-;Second uint64_t = Length of "region" 
-;third uint32_t = type
-;Next uint32_t = ACPI 3.0 Extended Attributes bitfield (if 24 bytes are returned, instead of 20)
-;WITH SEGMENTATION
-;[es:di]       Base Address (Low 32 bits)
-;[es:di + 4]   Base Address (High 32 bits)
-;[es:di + 8]   Length (Low 32 bits)
-;[es:di + 12]  Length (High 32 bits)
-;[es:di + 16]  Type (32 bits)
-;[es:di + 20]  Extended Attributes (32 bits)
-
-;Memory Map Entry (24 bytes total)
-;| 0              | Base Address (Low)   | 4 bytes |
-;| 4              | Base Address (High)  | 4 bytes |
-;| 8              | Length (Low)         | 4 bytes |
-;| 12             | Length (High)        | 4 bytes |
-;| 16             | Type                 | 4 bytes |
-;| 20             | Extended Attributes  | 4 bytes |  (we initialize)
+    popa                                  ; restore state
+    ret
 
 do_e820:
-	pusha
-	;STEPS before using int 0x15
+    pusha
+    ; STEPS before using int 0x15
     mov di, 0x0504           ; Set di to 0x8004 Otherwise this code will get stuck in `int 0x15` after some entries are fetched 
     xor ebx, ebx             ; ebx must be 0 to start
     xor bp, bp               ; keep an entry count in bp | make it 0
-    mov edx, 0x534D4150      ; Place "SMAP" into edx | The "SMAP" signature ensures that the BIOS provides the correct memory map format ()
+    mov edx, 0x534D4150      ; Place "SMAP" into edx | The "SMAP" signature ensures that the BIOS provides the correct memory map format
     mov eax, 0xe820          ; Function to get memory map
-    mov dword [es:di + 20], 1 ; force a valid ACPI 3.X entry | allows us to get additional information (extended attributes) | dword = 4 bytes
+    mov dword [es:di + 20], 1 ; force a valid ACPI 3.X entry | allows us to get additional information (extended attributes)
     mov ecx, 24              ; ask for 24 bytes | size of buffer for result | we want 24 to get ACPI 3.X entry with extra information
     int 0x15                 ; using interrupt
     jc short .failed         ; carry set on first call means "unsupported function"
@@ -210,7 +188,7 @@ do_e820:
     je short .skipent         ; jump if bit 0 is clear 
 .notext:
     mov eax, [es:di + 8]     ; get lower uint32_t of memory region length
-    or eax, [es:di + 12]     ; "or" it with upper uint32_t to test for zero and form 64 bits      (little endian)
+    or eax, [es:di + 12]     ; "or" it with upper uint32_t to test for zero and form 64 bits (little endian)
     jz .skipent              ; if length uint64_t is 0, skip entry
     inc bp                   ; got a good entry: ++count, move to next storage spot
     add di, 24               ; move next entry into buffer
@@ -221,45 +199,187 @@ do_e820:
     mov [mmap_ent], bp       ; store the entry count
     clc                      ; there is "jc" on end of list to this point, so the carry must be cleared
 
-	popa
+    popa
     ret
 .failed:
     stc                      ; "function unsupported" error exit
     ret
 
 get_cpu_vendor:
-	pusha
-	mov eax, 0x0
-	cpuid
-	mov [buffer],ebx
-	mov [buffer+4],edx
-	mov [buffer+8],ecx
-	mov si, cpu_vendor_str
-	call print_string
-	mov si, buffer
-	call print_string
-	popa
-	ret
+    pusha
+    mov eax, 0x0
+    cpuid
+    mov [buffer], ebx
+    mov [buffer + 4], edx
+    mov [buffer + 8], ecx
+    mov si, cpu_vendor_str
+    call print_string
+    mov si, buffer
+    call print_string
+    popa
+    ret
 
-
-
-
+protected_mode_success_str: db 'We are in Protected mode!', 0xA, 0xD, 0
 
 include './print_hex.asm'
 include './print_string.asm'
-cpu_vendor_str: db 0xA,0xD,'CPU vendor: ',0
-buffer: db 12 dup(0), 0xA,0xD,0
-menu_str:db 0xA,0xD,'M) display memory map',0xA,0xD,'C) Do checks', 0xA,0xD,'D) end program',0xA,0xD,0
-pci_status_str: db 0xA,0xD,'pci status: ',0
-pci_exists_str: db 'pci_exists',0xA,0xD,0
-pci_not_exists_str: db 'pci bus is not installed',0xA,0xD,0
-cpuid_ins_status_str: db 0xA,0xD,'CPUID instruction status: ',0
-cpuid_ins_available_str: db 'Available',0xA,0xD,0
-cpuid_ins_not_available_str: db 'Not available',0xA,0xD,0
-base_address_str: db 'Base Address: ',0
-length_of_region_str: db ' Length of region: ',0
-new_line_str: db 0xA,0xD,0
-type_str: db ' Type: ',0
+
+
+	               ;***********************GDT****************************
+;The Global Descriptor Table (GDT) is a data structure used by Intel x86-family processors to define the characteristics of the various memory segments used in a protected mode. It provides information such as the base address, size, and access permissions of segments. The CPU uses the GDT to manage and control access to different segments of memory.
+
+;In x86 protected mode, memory is divided into segments. Each segment can hold code, data, or stack information. Each segment is defined by a descriptor in the GDT, which includes details like the base address, size (limit), and access rights.
+
+;Each entry in the GDT is called a descriptor. A descriptor provides the base address, the segment limit, and the access rights and properties of the segment. Descriptors can define code segments, data segments, or system segments like Task State Segments (TSS).
+
+
+
+;Null Descriptor: This is a mandatory entry in the GDT. The first entry must be a null descriptor, which is not used and simply provides a placeholder.
+gdt_address:
+gdt_null:
+    ; null descriptor
+    dd 0x0
+    dd 0x0
+gdt_code:
+	;code sergment descriptor
+    dw 0xFFFF                   ; Lower 16 bits: 0xFFFF -> Upper 4 bits: 0xF ->together 0xFFFFF
+	;(0xFFFFF + 1) * 4 KB       ; we can access 4gb
+    dw 0x0000                   ; starts at address 0
+    db 0x00                     ; Base (next 8 bits)
+    db 0x9A                     ; Access byte. in binary -> 10011010
+	;1->Present bit. Allows an entry to refer to a valid segment.
+	;00->Descriptor privilege level field. 0 is heighest
+	;1->Descriptor type bit. If set (1) it defines a code or data segment.
+	;1->Executable bit. Defines a code segment which can be executed from 
+	;0->Conforming bit.if clear (0) code in this segment can only be executed from the ring set in DP
+	;1->Readable bit. Read access for this segment is allowed
+	;0->Accessed bit. The CPU will set it when the segment is accessed unless set to 1 in advance.
+    db 11001111b                ; 1111 represents the high 4 bits of the segment limit
+	;1->Granularity flag.If set (1), the Limit is in 4 KiB blocks
+	;1->If set (1) it defines a 32-bit protected mode segment.
+	;0->Not in long mode
+	;0->Reserved
+    db 0x00                     ; Base (high 8 bits)
+gdt_data_segment:
+    ; Data Segment Descriptor
+    dw 0xFFFF                   ; Limit (16 bits)
+    dw 0x0000                   ; Base (low 16 bits)
+    db 0x00                     ; Base (next 8 bits)
+    db 0x92                     ; Access byte (10010010)
+	;1->Present bit. Allows an entry to refer to a valid segment. Must be set (1) for any valid segment.
+	;00->Descriptor privilege level field. 0 is heighest
+	;1->Descriptor type bit. If set (1) it defines a code or data segment.
+	;0->Executable bit.If (0) defines a data segment. 
+	;0->Direction bit.if clear (0) segment grows upwards
+	;1->Readable|Writable bit. If set (1) write access is allowed. Read access is always allowed for data segments.
+	;0->Accessed bit. The CPU will set it when the segment is accessed unless set to 1 in advance.
+    db 11001111b                ; Flags (Limit high 4 bits and granularity)
+    db 0x00                     ; Base (high 8 bits):
+gdt_end:
+
+;Size: The size of the GDT is calculated by subtracting the start address from the end address and then subtracting 1. This is a common convention in x86 assembly.
+;Address: The base address of the GDT is provided so the CPU can locate it.
+gdt_descriptor:
+    dw gdt_end - gdt_address - 1       ; size of gdt
+    dd gdt_address                     ; address of gdt
+
+use32
+load32:
+
+	mov eax, 6               ; LBA start address for kernel.bin (6 in this example)
+    mov ecx, 100               ; Number of sectors to read (100 in this example)
+    mov edi, 0x100000        ; Memory address to load the kernel
+    call ata_lba_read
+
+    ; Jump to the loaded kernel
+    jmp code_segment:0x100000
+
+
+
+pm_print_string:
+    pusha
+    mov ah, 0x0F            ; Attribute byte: white text on black background
+.print_loop:
+    lodsb                   ; Load next byte from string into AL
+    cmp al, 0
+    je .done                ; If null terminator, end of string
+    mov [es:edi], ax        ; Write character and attribute to video memory
+    add edi, 2              ; Move to next character position
+    jmp .print_loop
+.done:
+    popa
+    ret
+;reading sectors from a hard disk using the ATA (Advanced Technology Attachment) interface in LBA (Logical Block Addressing) mode. 
+;ATA (Advanced Technology Attachment)
+;ATA is a standard interface for connecting storage devices such as hard drives and CD-ROM drives to a computer. It allows the CPU to communicate with these devices to read and write data.
+
+;LBA (Logical Block Addressing)
+;LBA is a method of specifying the location of blocks of data stored on a hard disk. Unlike CHS (Cylinder-Head-Sector) addressing, which refers to the physical location on the disk, LBA uses a linear addressing scheme, making it simpler and more efficient for accessing large amounts of data.
+
+ata_lba_read:
+    pusha
+
+    mov ebx, eax            ; backup lba
+	;Send 0xE0 for the "master" or 0xF0 for the "slave", ORed with the highest 4 bits of the LBA to port 0x1F6: outb(0x1F6, 0xE0 | (slavebit << 4) | ((LBA >> 24) & 0x0F))
+    shr eax, 24
+    or eax, 0xE0
+    mov dx, 0x1F6
+    out dx, al
+	;Send the sectorcount to port 0x1F2: outb(0x1F2, (unsigned char) count)
+    mov eax, ecx
+    mov dx, 0x1F2
+    out dx, al
+	;Send the low 8 bits of the LBA to port 0x1F3: outb(0x1F3, (unsigned char) LBA))
+    mov eax, ebx
+    mov dx, 0x1F3
+    out dx, al
+	;Send the next 8 bits of the LBA to port 0x1F4: outb(0x1F4, (unsigned char)(LBA >> 8))
+    mov dx, 0x1F4
+    mov eax, ebx
+    shr eax, 8
+    out dx, al
+	;Send the next 8 bits of the LBA to port 0x1F5: outb(0x1F5, (unsigned char)(LBA >> 16))
+    mov dx, 0x1F5
+    mov eax, ebx
+    shr eax, 16
+    out dx, al
+	;Send the "READ SECTORS" command (0x20) to port 0x1F7: outb(0x1F7, 0x20)
+    mov dx, 0x1f7
+    mov al, 0x20
+    out dx, al
+; read all sectors in memory
+.next_sector:
+    push ecx
+;checks if the disk is ready to transfer data by reading from I/O port 0x1F7 and testing bit 3 (DRQ - Data Request bit).
+.try_again:
+    mov dx, 0x1f7
+    in al, dx
+    test al, 8
+    jz .try_again
+;Transfer 256 16-bit values, a uint16_t at a time, into your buffer from I/O port 0x1F0.
+    mov ecx, 256
+    mov dx, 0x1F0
+    rep insw
+    pop ecx
+    loop .next_sector
+
+
+    popa
+    ret
+
+cpu_vendor_str: db 0xA, 0xD, 'CPU vendor: ', 0
+buffer: db 12 dup(0), 0xA, 0xD, 0
+menu_str: db 0xA, 0xD, 'M) display memory map', 0xA, 0xD, 'C) Do checks', 0xA, 0xD, 'D) end program', 0xA, 0xD, 'P) Enter into protected mode',0xA,0xD,0
+pci_status_str: db 0xA, 0xD, 'pci status: ', 0
+pci_exists_str: db 'pci_exists', 0xA, 0xD, 0
+pci_not_exists_str: db 'pci bus is not installed', 0xA, 0xD, 0
+cpuid_ins_status_str: db 0xA, 0xD, 'CPUID instruction status: ', 0
+cpuid_ins_available_str: db 'Available', 0xA, 0xD, 0
+cpuid_ins_not_available_str: db 'Not available', 0xA, 0xD, 0
+base_address_str: db 'Base Address: ', 0
+length_of_region_str: db ' Length of region: ', 0
+new_line_str: db 0xA, 0xD, 0
+type_str: db ' Type: ', 0
 memory_map_str: db 0xA, 0xD, "Memory Map:", 0xA, 0xD, 0
 exit_command_str: db 0xA, 0xD, 'Program exiting...', 0xA, 0xD, 0
 command_not_found_str: db 0xA, 0xD, "The command doesn't exist", 0xA, 0xD, 0
@@ -267,5 +387,4 @@ second_stage_boot_str_success: db 'Second bootloader loaded', 0xA, 0xD, 0
 empty_command_str: db ''
 
 times 2560 - ($-$$) db 0
-
 
