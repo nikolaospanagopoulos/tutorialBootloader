@@ -1,6 +1,9 @@
+#include "physical_memory.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+
+// Free a previously allocated page
 
 /* Check if the compiler thinks you are targeting the wrong operating system. */
 #if defined(__linux__)
@@ -132,7 +135,17 @@ void terminal_writestring(const char *data) {
 void kernel_main(void) {
   /* Initialize terminal interface */
   terminal_initialize();
+  pmm_init();
+
+  void *page1 = pmm_alloc_page();
+  // void *page2 = pmm_alloc_page();
+  if (page1 != NULL) {
+    // Check the allocated page address
+    terminal_writestring("hello\n");
+  } else {
+    terminal_writestring("skata\n");
+  }
+  pmm_free_page(page1);
 
   /* Newline support is left as an exercise. */
-  terminal_writestring("hello\n");
 }
