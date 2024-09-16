@@ -79,17 +79,23 @@ void terminal_putentryat(char c, uint8_t color, size_t x, size_t y) {
 
 void terminal_putchar(char c) {
   if (c == '\n') {
+    // if new line column  is 0 and we go one row lower
     terminal_column = 0;
+    // if the row exceeds height we scroll
     if (++terminal_row == VGA_HEIGHT) {
       terminal_scroll();
+      // move cursor to last row
       terminal_row = VGA_HEIGHT - 1;
     }
   } else {
     terminal_putentryat(c, terminal_color, terminal_column, terminal_row);
+    // if cursor reaches end of line, column becomes 0 and row ++
     if (++terminal_column == VGA_WIDTH) {
       terminal_column = 0;
       if (++terminal_row == VGA_HEIGHT) {
+        // move cursor to last row
         terminal_row = VGA_HEIGHT - 1;
+        // scroll
         terminal_scroll();
       }
     }
@@ -97,14 +103,17 @@ void terminal_putchar(char c) {
 }
 
 void terminal_scroll() {
+  // i=1 -> start from second row
   for (int i = 1; i < VGA_HEIGHT; i++) {
     for (int j = 0; j < VGA_WIDTH; j++) {
+      // copy contents of row to the one above it
       const size_t src = i * VGA_WIDTH + j;
       const size_t destination = (i - 1) * VGA_WIDTH + j;
       terminal_buffer[destination] = terminal_buffer[src];
     }
   }
 
+  // clear last row
   for (size_t x = 0; x < VGA_WIDTH; x++) {
     const size_t index = (VGA_HEIGHT - 1) * VGA_WIDTH + x;
     terminal_buffer[index] = vga_entry(' ', terminal_color);
