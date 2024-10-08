@@ -3,6 +3,7 @@ format ELF
 use32
 extrn kernel_main
 public _start
+public problem
 
 ;EACH GDT ENTRY IS 1 BYTE
 CODE_SEGMENT equ 0x08 ;first entry in the GDT (not 0) -> 0x08
@@ -32,6 +33,20 @@ _start:
     or al, 2                             ; set the second bit to enable A20 line
     out 0x92, al                         ; write the new value back to 0x92 port
 
+	 ; Remap the master PIC
+    mov al, 00010001b
+    out 0x20, al ; Tell master PIC
+
+    mov al, 0x20 ; Interrupt 0x20 is where master ISR should start
+    out 0x21, al
+
+    mov al, 00000001b
+    out 0x21, al
+    ; End remap of the master PIC
+
+    ; Enable interrupts
+    sti
+
 	call kernel_main
     jmp $
 
@@ -52,4 +67,9 @@ pm_print_string:
 
 section '.data'
 test_str: db 'Protected test', 0
+
+problem:
+	int 0
+
+
 times 512-($ - $$) db 0

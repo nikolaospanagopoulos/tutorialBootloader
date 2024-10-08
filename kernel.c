@@ -1,3 +1,5 @@
+#include "idt.h"
+#include "io.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -128,11 +130,14 @@ void terminal_write(const char *data, size_t size) {
 void terminal_writestring(const char *data) {
   terminal_write(data, strlen(data));
 }
-
+extern void problem();
 void kernel_main(void) {
   /* Initialize terminal interface */
   terminal_initialize();
 
   /* Newline support is left as an exercise. */
   terminal_writestring("hello\n");
+
+  idt_init();
+
 }
