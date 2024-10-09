@@ -138,14 +138,12 @@ void kernel_main(void) {
   pmm_init();
 
   void *page1 = pmm_alloc_page();
-  // void *page2 = pmm_alloc_page();
-  if (page1 != NULL) {
-    // Check the allocated page address
-    terminal_writestring("hello\n");
-  } else {
-    terminal_writestring("skata\n");
+  void *page2 = pmm_alloc_page();
+  if (!page1 || !page2) {
+    terminal_writestring("Something went wrong \n");
   }
   pmm_free_page(page1);
+  pmm_free_page(page2);
 
-  /* Newline support is left as an exercise. */
+  terminal_writestring("Hello\n");
 }
