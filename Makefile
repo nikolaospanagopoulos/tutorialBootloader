@@ -27,11 +27,12 @@ FLAGS = -g -ffreestanding -falign-jumps -falign-functions -falign-labels -falign
 
 ./build/idt.o: ./idt.c
 	i686-elf-gcc $(FLAGS) -std=gnu99 -c ./idt.c -o ./build/idt.o
-
 ./build/memory.o: ./memory.c
 	i686-elf-gcc $(FLAGS) -std=gnu99 -c ./memory.c -o ./build/memory.o
 ./build/io.asm.o: ./io.asm
 	fasm ./io.asm ./build/io.asm.o
+./build/physical_memory.o: ./physical_memory.c
+	i686-elf-gcc $(FLAGS) -std=gnu99 -c ./physical_memory.c -o ./build/physical_memory.o
 
 clean:
 	rm -f ./bin/*.bin

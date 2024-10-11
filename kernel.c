@@ -1,8 +1,11 @@
 #include "idt.h"
 #include "io.h"
+#include "physical_memory.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+
+// Free a previously allocated page
 
 /* Check if the compiler thinks you are targeting the wrong operating system. */
 #if defined(__linux__)
@@ -134,10 +137,20 @@ extern void problem();
 void kernel_main(void) {
   /* Initialize terminal interface */
   terminal_initialize();
+  pmm_init();
 
   /* Newline support is left as an exercise. */
   terminal_writestring("hello\n");
 
   idt_init();
 
+  void *page1 = pmm_alloc_page();
+  void *page2 = pmm_alloc_page();
+  if (!page1 || !page2) {
+    terminal_writestring("Something went wrong \n");
+  }
+  pmm_free_page(page1);
+  pmm_free_page(page2);
+
+  terminal_writestring("Hello\n");
 }
