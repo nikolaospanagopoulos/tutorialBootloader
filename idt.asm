@@ -2,28 +2,22 @@ format ELF
 section '.asm'
 
 public load_interrupt_descriptor_table
-public int21h
-public no_interrupt
+public interrupt_21h
+public empty_interrupt
 extrn int21h_handler
-extrn no_interrupt_handler
+extrn empty_interrupt_handler
 public allow_interrupts
-
-allow_interrupts:
-	sti
-	ret
-disable_interrupts:
-	cli
-	ret
 
 load_interrupt_descriptor_table:
 	push ebp
 	mov ebp, esp
-	mov ebx, [ebp + 8]
+	mov ebx, [ebp + 8]  ;put pointer address in the ebx register
+	;LIDT assembly instruction, whose argument is a pointer to an IDT Descriptor structure
 	lidt [ebx]
 	pop ebp
 	ret
 
-int21h:
+interrupt_21h:
     cli
     pushad
     call int21h_handler
@@ -31,14 +25,20 @@ int21h:
     sti
     iret
 
-no_interrupt:
+empty_interrupt:
     cli
     pushad
-    call no_interrupt_handler
+    call empty_interrupt_handler
     popad
     sti
     iret
 
+allow_interrupts:
+	sti
+	ret
+disable_interrupts:
+	cli
+	ret
 
 	;THE STACK WIHOUT PUSHING THE BASE POINTER
 ;[return address]  ; The address to return to after the function call
