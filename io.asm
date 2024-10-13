@@ -16,7 +16,7 @@ inb:
     pop ebp              ;Restore the base pointer
     ret                  
 
-	
+;This function writes a byte (provided by the caller) to a specific I/O port. The port number is stored in EDX, and the data to be written is stored in AL.
 outb:
     push ebp             ;Save the base pointer
     mov ebp, esp         ;Set up the stack frame
