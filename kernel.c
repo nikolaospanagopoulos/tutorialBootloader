@@ -133,24 +133,14 @@ void terminal_write(const char *data, size_t size) {
 void terminal_writestring(const char *data) {
   terminal_write(data, strlen(data));
 }
-extern void problem();
+void allow_interrupts();
 void kernel_main(void) {
   /* Initialize terminal interface */
   terminal_initialize();
-  pmm_init();
 
-  /* Newline support is left as an exercise. */
-  terminal_writestring("hello\n");
+  allow_interrupts();
 
   idt_init();
-
-  void *page1 = pmm_alloc_page();
-  void *page2 = pmm_alloc_page();
-  if (!page1 || !page2) {
-    terminal_writestring("Something went wrong \n");
-  }
-  pmm_free_page(page1);
-  pmm_free_page(page2);
 
   terminal_writestring("Hello\n");
 }
