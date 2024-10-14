@@ -11,7 +11,14 @@ struct idt_ptr idt_pointer;
 
 void load_interrupt_descriptor_table(void *ptr);
 void interrupt_21h();
+void interrupt_20h();
 void empty_interrupt();
+
+void int20h_handler() {
+  terminal_writestring("timer runs\n");
+  outb(0x20, 0x20);
+}
+
 void int21h_handler() {
   terminal_writestring("Key pressed \n");
   /*
@@ -59,7 +66,8 @@ void idt_init() {
     set_idt_entry(i, empty_interrupt);
   }
 
-  set_idt_entry(0, idt_zero);
+  set_idt_entry(0x00, idt_zero);
+  set_idt_entry(0x20, interrupt_20h);
   set_idt_entry(0x21, interrupt_21h);
 
   load_interrupt_descriptor_table(&idt_pointer);
