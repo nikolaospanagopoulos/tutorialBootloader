@@ -1,4 +1,4 @@
-FILES = ./build/kernel.asm.o ./build/kernel.o ./build/idt.o ./build/idt.asm.o ./build/memory.o ./build/io.asm.o
+FILES = ./build/kernel.asm.o ./build/kernel.o ./build/idt.o ./build/idt.asm.o ./build/memory.o ./build/io.asm.o ./build/paging.asm.o ./build/paging.o
 FLAGS = -g -ffreestanding -falign-jumps -falign-functions -falign-labels -falign-loops -fstrength-reduce -fomit-frame-pointer -finline-functions -Wno-unused-function -fno-builtin -Werror -Wno-unused-label  -Wno-unused-parameter -nostdlib -nostartfiles -nodefaultlibs -Wall -O0 -Iinc
 
 ./bin/os.bin: ./bin/boot.bin ./bin/second_stage_boot.bin ./bin/kernel.bin
@@ -25,12 +25,21 @@ FLAGS = -g -ffreestanding -falign-jumps -falign-functions -falign-labels -falign
 ./build/kernel.o: ./kernel.c
 	i686-elf-gcc $(FLAGS) -std=gnu99 -c ./kernel.c -o ./build/kernel.o
 
+./build/paging.o: ./paging.c
+	i686-elf-gcc $(FLAGS) -std=gnu99 -c ./paging.c -o ./build/paging.o
+
 ./build/idt.o: ./idt.c
 	i686-elf-gcc $(FLAGS) -std=gnu99 -c ./idt.c -o ./build/idt.o
+
 ./build/memory.o: ./memory.c
 	i686-elf-gcc $(FLAGS) -std=gnu99 -c ./memory.c -o ./build/memory.o
+
 ./build/io.asm.o: ./io.asm
 	fasm ./io.asm ./build/io.asm.o
+
+./build/paging.asm.o: ./paging.asm
+	fasm ./paging.asm ./build/paging.asm.o
+
 ./build/physical_memory.o: ./physical_memory.c
 	i686-elf-gcc $(FLAGS) -std=gnu99 -c ./physical_memory.c -o ./build/physical_memory.o
 

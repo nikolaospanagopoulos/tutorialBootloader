@@ -1,5 +1,6 @@
 #include "idt.h"
 #include "io.h"
+#include "paging.h"
 #include "physical_memory.h"
 #include <stdbool.h>
 #include <stddef.h>
@@ -134,6 +135,15 @@ void terminal_writestring(const char *data) {
   terminal_write(data, strlen(data));
 }
 void allow_interrupts();
+void test_paging() {
+  uint32_t *ptr = (uint32_t *)0x1000; // An address within the first 4MB
+  *ptr = 0xDEADBEEF;
+  if (*ptr == 0xDEADBEEF) {
+    terminal_writestring("Paging test passed!\n");
+  } else {
+    terminal_writestring("Paging test failed!\n");
+  }
+}
 void kernel_main(void) {
   /* Initialize terminal interface */
   terminal_initialize();
@@ -141,6 +151,10 @@ void kernel_main(void) {
   allow_interrupts();
 
   idt_init();
+
+  paging_init();
+
+  test_paging();
 
   terminal_writestring("Hello\n");
 }
